@@ -102,7 +102,6 @@
                         REMOTE_SUDO_COMMAND = ''{{default "${deployment.sudo.command}" .LP_REMOTE_SUDO_COMMAND}}'';
                         REMOTE_SUDO_OPTS = ''{{default "${pkgs.lib.concatStrings deployment.sudo.opts}" .LP_REMOTE_SUDO_OPTS}}'';
                         REBUILD_ACTION = ''{{default "switch" .REBUILD_ACTION}}'';
-                        REMOTE_CONFIG_DIR = deployment.config-dir;
                         LOCAL_FLAKE_SOURCE = configFlake;
                         HOSTNAME = hostName;
                       };
@@ -187,8 +186,8 @@
                                     ${optionalString useSudo "--use-remote-sudo"}
                                 '' else ''
                                 {{.REMOTE_COMMAND}} {{.REMOTE_SSH_OPTS}} {{.REMOTE_USER}}@{{.REMOTE_HOST}} \
-                                "${optionalString useSudo "{{.REMOTE_SUDO_COMMAND}} {{.REMOTE_SUDO_OPTS}}"} nixos-rebuild {{.REBUILD_ACTION}} \
-                                --flake '{{.REMOTE_CONFIG_DIR}}#{{.HOSTNAME}}'"
+                                  "${optionalString useSudo "{{.REMOTE_SUDO_COMMAND}} {{.REMOTE_SUDO_OPTS}}"} nixos-rebuild {{.REBUILD_ACTION}} \
+                                  --flake '{{.LOCAL_FLAKE_SOURCE}}#{{.HOSTNAME}}'"
                               '')
                             ];
                           };
@@ -200,23 +199,9 @@
                             cmds = [
                               ''echo "Deploying flake to: {{.HOSTNAME}}"''
                               ''
-                                source_path={{.LOCAL_FLAKE_SOURCE}}
-                                if test -d "$source_path"; then
-                                  source_path=$source_path/
-                                fi
-                                ${pkgs.rsync}/bin/rsync \
-                                --verbose \
-                                -e "{{.REMOTE_COMMAND}} -l {{.REMOTE_USER}} -T {{.REMOTE_SSH_OPTS}}" \
-                                -FD \
-                                --checksum \
-                                --times \
-                                --perms \
-                                --recursive \
-                                --links \
-                                --delete-excluded \
-                                --mkpath \
-                                ${optionalString useSudo ''--rsync-path="{{.REMOTE_SUDO_COMMAND}} {{.REMOTE_SUDO_OPTS}} rsync"''} \
-                                $source_path {{.REMOTE_USER}}\@{{.REMOTE_HOST}}:{{.REMOTE_CONFIG_DIR}}
+                                NIX_SSHOPTS="{{.REMOTE_SSH_OPTS}}" nix flake archive \
+                                  --to ssh://{{.REMOTE_USER}}@{{.REMOTE_HOST}} \
+                                  {{.LOCAL_FLAKE_SOURCE}}
                               ''
                             ];
                           };
