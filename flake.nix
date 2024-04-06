@@ -101,7 +101,6 @@
                         REMOTE_SSH_OPTS = ''{{default "${pkgs.lib.concatStrings deployment.ssh.opts}" .LP_REMOTE_SSH_OPTS}}'';
                         REMOTE_SUDO_COMMAND = ''{{default "${deployment.sudo.command}" .LP_REMOTE_SUDO_COMMAND}}'';
                         REMOTE_SUDO_OPTS = ''{{default "${pkgs.lib.concatStrings deployment.sudo.opts}" .LP_REMOTE_SUDO_OPTS}}'';
-                        REBUILD_ACTION = ''{{default "switch" .REBUILD_ACTION}}'';
                         LOCAL_FLAKE_SOURCE = configFlake;
                         LOCAL_EVALUATION = ''{{default "${pkgs.lib.optionalString deployment.local-evaluation "true"}" .LP_LOCAL_EVALUATION}}'';
                         HOSTNAME = hostName;
@@ -110,6 +109,30 @@
                       tasks =
                         let
                           useSudo = hostConfig.config.lollypops.deployment.sudo.enable;
+                          mkRebuildTask = { name, needsSudo ? true, command ? name }: {
+                            ${name} = {
+                              dir = self;
+
+                              desc = "Run nixos-rebuild ${name} on: ${hostName}";
+                              deps = [ "deploy-flake" ];
+                              cmds = [
+                                ''echo "Rebuilding: {{.HOSTNAME}}"''
+                                ''
+                                  if [ "{{.LOCAL_EVALUATION}}" = "true" ]
+                                  then
+                                    NIX_SSHOPTS="{{.REMOTE_SSH_OPTS}}" nixos-rebuild ${command} \
+                                      --flake '{{.LOCAL_FLAKE_SOURCE}}#{{.HOSTNAME}}' \
+                                      --target-host {{.REMOTE_USER}}@{{.REMOTE_HOST}} \
+                                      ${pkgs.lib.optionalString (useSudo && needsSudo) "--use-remote-sudo"}
+                                  else
+                                    {{.REMOTE_COMMAND}} {{.REMOTE_SSH_OPTS}} {{.REMOTE_USER}}@{{.REMOTE_HOST}} \
+                                      "${pkgs.lib.optionalString (useSudo && needsSudo) "{{.REMOTE_SUDO_COMMAND}} {{.REMOTE_SUDO_OPTS}}"} nixos-rebuild ${name} \
+                                      --flake '{{.LOCAL_FLAKE_SOURCE}}#{{.HOSTNAME}}'"
+                                  fi
+                                ''
+                              ];
+                            };
+                          };
                         in
                         with pkgs.lib; {
 
@@ -173,28 +196,6 @@
                               );
                             };
 
-                          rebuild = {
-                            dir = self;
-
-                            desc = "Rebuild configuration of: ${hostName}";
-                            deps = [ "check-vars" ];
-                            cmds = [
-                              ''
-                                if [ "{{.LOCAL_EVALUATION}}" = "true" ]
-                                then
-                                  NIX_SSHOPTS="{{.REMOTE_SSH_OPTS}}" nixos-rebuild {{.REBUILD_ACTION}} \
-                                    --flake '{{.LOCAL_FLAKE_SOURCE}}#{{.HOSTNAME}}' \
-                                    --target-host {{.REMOTE_USER}}@{{.REMOTE_HOST}} \
-                                    ${optionalString useSudo "--use-remote-sudo"}
-                                else
-                                  {{.REMOTE_COMMAND}} {{.REMOTE_SSH_OPTS}} {{.REMOTE_USER}}@{{.REMOTE_HOST}} \
-                                    "${optionalString useSudo "{{.REMOTE_SUDO_COMMAND}} {{.REMOTE_SUDO_OPTS}}"} nixos-rebuild {{.REBUILD_ACTION}} \
-                                    --flake '{{.LOCAL_FLAKE_SOURCE}}#{{.HOSTNAME}}'"
-                                fi
-                              ''
-                            ];
-                          };
-
                           deploy-flake = {
 
                             deps = [ "check-vars" ];
@@ -208,7 +209,14 @@
                               ''
                             ];
                           };
-                        } // hostConfig.config.lollypops.extraTasks;
+                        }
+                        // (mkRebuildTask { name = "switch"; })
+                        // (mkRebuildTask { name = "boot"; })
+                        // (mkRebuildTask { name = "test"; })
+                        // (mkRebuildTask { name = "build"; needsSudo = false; })
+                        // (mkRebuildTask { name = "dry-build"; needsSudo = false; }) # Does not work with local evaluation, probably an upstream issue
+                        // (mkRebuildTask { name = "dry-activate"; })
+                        // hostConfig.config.lollypops.extraTasks;
                     });
 
 

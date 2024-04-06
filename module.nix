@@ -152,7 +152,7 @@ in
 
     tasks = mkOption {
       type = types.listOf types.str;
-      default = [ "deploy-flake" "deploy-secrets" "rebuild" ];
+      default = [ "deploy-flake" "deploy-secrets" "switch" ];
       description = "The list of tasks to run for each host.";
     };
 
@@ -182,7 +182,7 @@ in
       default = { };
       description = ''
         Extra tasks to run for the host. If any are defined with the same name as the default tasks
-        (<literal>deploy-secrets</literal>, <literal>rebuild</literal>, <literal>deploy-flake</literal>)
+        (<literal>deploy-secrets</literal>, <literal>switch</literal>, <literal>deploy-flake</literal>)
         the original tasks will be overriden.
       '';
 

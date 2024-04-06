@@ -54,12 +54,12 @@ nix run '.' -- --list-all
 * ahorn:check-vars:
 * ahorn:deploy-flake:
 * ahorn:deploy-secrets:
-* ahorn:rebuild:
+* ahorn:switch:
 * birne:
 * birne:check-vars:
 * birne:deploy-flake:
 * birne:deploy-secrets:
-* birne:rebuild:
+* birne:switch:
 ```
 
 Tasks are organized hierarchically by `hostname:tasks`. The above shows two
@@ -72,7 +72,7 @@ nix run '.' -- ahorn
 ```
 
 This would run the tasks `ahorn:check-vars` `ahorn:deploy-flake`
-`ahorn:deploy-secrets` and `ahorn:rebuild`. You can also only run a specific
+`ahorn:deploy-secrets` and `ahorn:switch`. You can also only run a specific
 subtask e.g.:
 
 ```sh
@@ -99,10 +99,10 @@ nix run '.' -- -p ahorn birne
 [ahorn:deploy-flake] sent 7.001 bytes  received 125 bytes  14.252,00 bytes/sec
 [ahorn:deploy-flake] total size is 667.681  speedup is 93,70
 [ahorn:deploy-secrets] Deploying secrets to: ahorn
-[ahorn:rebuild] Rebuilding: ahorn
+[ahorn:switch] Rebuilding: ahorn
 [birne:deploy-flake] sent 9.092 bytes  received 205 bytes  15.252,00 bytes/sec
 ssh: Could not resolve hostname kartoffel: Name or service not known
-[ahorn:rebuild] building the system configuration...
+[ahorn:switch] building the system configuration...
 ...
 ```
 
@@ -111,11 +111,10 @@ ssh: Could not resolve hostname kartoffel: Name or service not known
 By default the rebuild step will run `nixos-rebuild switch` to activate the
 configuration as part of the deployment. It is possible to override the default
 (`switch`) rebuild action for testing, e.g. to set it to `boot`, `test` or
-`dry-activate` by setting the environment variable `REBUILD_ACTION` to the
-desired action, e.g.
+`dry-activate` by changing the desired task, e.g.:
 
 ```sh
-REBUILD_ACTION=dry-activate nix run '.' -- -p ahorn birne
+nix run '.' -- -p ahorn:dry-activate birne:dry-activate
 ```
 
 ## Configuration
@@ -170,16 +169,28 @@ you to list the tasks for two hosts with `--list-all`
 ```sh
 nix run '.' --show-trace -- --list-all
 task: Available tasks for this project:
-* host1:
+
+task: Available tasks for this project:
+* all:
+* default:                    Provision group: default
+* host1:boot:                 Run nixos-rebuild boot on: host1
+* host1:build:                Run nixos-rebuild build on: host1
 * host1:check-vars:
-* host1:deploy-flake:
-* host1:deploy-secrets:
-* host1:rebuild:
-* host2:
+* host1:deploy-flake:         Deploy flake repository to: host1
+* host1:deploy-secrets:       Deploy secrets to: host1
+* host1:dry-activate:         Run nixos-rebuild dry-activate on: host1
+* host1:dry-build:            Run nixos-rebuild dry-build on: host1
+* host1:                      Provision host: host1
+* host1:switch:               Run nixos-rebuild switch on: host1
+* host1:test:                 Run nixos-rebuild test on: host1
+* host2:boot:                 Run nixos-rebuild boot on: host2
+* host2:build:                Run nixos-rebuild build on: host2
 * host2:check-vars:
-* host2:deploy-flake:
-* host2:deploy-secrets:
-* host2:rebuild:
+* host2:deploy-flake:         Deploy flake repository to: host2
+* host2:deploy-secrets:       Deploy secrets to: host2
+* host2:dry-activate:         Run nixos-rebuild dry-activate on: host2
+* host2:dry-build:            Run nixos-rebuild dry-build on: host2
+* host2:                      Provision host: host2
 ```
 
 To actually do something useful you can now use the options provided by the
@@ -289,14 +300,14 @@ lollypops.secrets = {
 
 You can also choose which tasks you want to run, define your own tasks, or even override the default tasks:
 ```nix
-lollypops.tasks = [ "deploy-secrets" "example" "rebuild" ];
+lollypops.tasks = [ "deploy-secrets" "example" "switch" ];
 lollypops.extraTasks = {
   example = {
     desc = "An example task";
     cmds = [ "echo 'this is a task'" ];
   };
 
-  rebuild = {
+  switch = {
     dir = ".";
     deps = [ "example" ];
     desc = "Rebuild configuration of: example-host";
@@ -315,10 +326,10 @@ lollypops.extraTasks = {
 };
 ```
 
-In this example, the user has outlined that the `deploy-secrets`, `example` and `rebuild` tasks should run for this host.  
-They have set the `rebuild` task to only run after the `example` task has finished successfully by using the `deps` keyword.
-Since `rebuild` is the name of one of the default tasks set to run (`deploy-secrets`, `deploy-flake` & `rebuild`) they are
-opting to override the default definition and instead define how they'd like to run a "rebuild" - in this case, they are
+In this example, the user has outlined that the `deploy-secrets`, `example` and `switch` tasks should run for this host.  
+They have set the `switch` task to only run after the `example` task has finished successfully by using the `deps` keyword.
+Since `switch` is the name of one of the default tasks set to run (`deploy-secrets`, `deploy-flake` & `switch`) they are
+opting to override the default definition and instead define how they'd like to run a "switch" - in this case, they are
 relying on `nix build` to run locally, then copying the resulting closure to the remote machine and eventually switching the
 remote `system` profile to it. This is a useful example for cases where the remote machine is a very low resource system.
 
