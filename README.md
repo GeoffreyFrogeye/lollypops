@@ -213,9 +213,9 @@ lollypops.deployment = {
 };
 ```
 
-Setting `lollypops.deployment.local-evaluation` to true, will result in
-evaluation being done on the local side. This requires `nixos-rebuild` in your
-`$PATH`
+Setting `lollypops.deployment.local-evaluation` or the environment variable
+`LP_LOCAL_EVALUATION` to true, will result in evaluation being done on the
+local side. This requires `nixos-rebuild` in your `$PATH`.
 
 **Note:** If using `sudo`, the user you're connecting as still needs to be able
 to access the Nix daemon. This is the default in NixOS.
